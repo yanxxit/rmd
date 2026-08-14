@@ -153,3 +153,63 @@
 - [ ] 清理孤儿 git tag（如 `v`）
 - [ ] 如需 token 发布，确认其为绑定 `@yanit/rmd` 且 bypass 2fa 的 granular token
 - [ ] 切勿将 token 粘贴到对话 / 日志
+
+---
+
+## 10. 代码缺陷：删除"指向目录的符号链接"会误删目标内容
+
+- **现象（历史 bug）**：`manual_remove_dir_all` 用 `entry.metadata()`（会跟随符号
+  链接）判断是否为目录。对一个"指向目录的符号链接"，返回的是目标目录的
+  metadata，被当真实子目录递归进入**目标**删除，导致用户数据被误删。
+- **原因**：使用跟随链接的 `metadata()` 而非 `entry.file_type()`。
+- **处理**：✅ 已修复（`src/remove.rs`）。
+  - 改为用 `entry.file_type()`（不跟随链接）判断；
+  - 符号链接单独走 `remove_file`（只删链接本身），绝不进入目标。
+  - 并补充回归测试 `test/index.test.js` 第 9b 项（删除指向目录的符号链接后
+    断言目标目录及内容完好），13 项测试全部通过。
+- **状态**：✅ 已解决 + 有回归测试守护。
+
+## 11. 代码改进：删除失败错误携带路径
+
+- **现象**：多目标批量删除时，任一文件失败抛出的错误只有 `Permission denied`
+  等通用信息，无法定位是哪个文件出错。
+- **处理**：✅ 已修复（`src/remove.rs`）。`with_retry` 增加 `path` 参数，`read_dir` /
+  `entry` / `file_type` / `symlink_metadata` 等错误均附带出错路径，例如：
+  ```
+  remove failed: /path/to/broken/sub/file.txt: Permission denied
+  ```
+  路径信息经 `lib.rs` 的 `to_err` 自动透传到 `removeSync` / `removeAsync` 异常。
+- **状态**：✅ 已解决。
+
+---
+
+## 下一个优化方向（推荐）
+
+按性价比排序，建议下一步做：
+
+1. **【高优先级】并行删除提升性能 ✅ 已实现**（见优化分析 #4）
+   `manual_remove_dir_all` 已用 `rayon` 对**同一目录层内的文件 / 符号链接**并行删除，
+   目录删除仍严格后序（必须清空后才能删父目录，避免竞态）。实现要点：
+   - 显式栈 + `phase` 标记（`false`=展开子项，`true`=删除空目录）保证后序且无重复
+     `read_dir`；
+   - 每层的文件/链接用 `leaves.par_iter().for_each(...)` 并发删除，首个错误通过
+     `Mutex<Option<io::Error>>` 收集并向上传播；
+   - 目录删除保持顺序、严格后序，符号链接用 `entry.file_type()`（不跟随）仅删链接本身。
+   - 回归守护见 `test/index.test.js` 的 `#9c`（400 文件 / 深度 4 大目录树 + 树外符号链接）。
+
+2. **【中优先级】`--dry-run` / 预览落到 Rust 侧**（见 #7）
+   当前 CLI 的 `--dry-run` 在 JS 层实现，Rust 无"只收集待删路径"能力。可暴露
+   `collect_paths` API，供 dry-run、进度条、测试复用，也避免 JS 重复遍历逻辑。
+
+3. **【中优先级】`preserveRoot` 根目录守卫**（见 #10）
+   `remove_sync` API 层无根目录保护，调用方传入 `/` 会真删。建议在 Rust 侧加
+   对 `/`、挂载点、cwd 的守卫（CLI 已做，API 缺失）。
+
+4. **【中优先级】`continueOnError` / 收集失败列表**（见 #8）
+   当前任一文件失败即整体返回 Err，已删部分不回滚。可加 `continueOnError` 选项，
+   返回 `failed_paths: string[]` 让用户决策，而非直接中断。
+
+5. **【低优先级】可配置重试策略**（见 #6）
+   `MAX_RETRIES=5` / 10s 上限对 NFS/SMB 网络盘不友好，可改为指数退避或配置项。
+
+> 并行删除（#1）已实现，其 + 符号链接的集成测试 `#9c` 已作为回归守护。

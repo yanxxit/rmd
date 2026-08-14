@@ -136,7 +136,7 @@ function ok(name) {
   ok("batch removal");
 }
 
-// 9. 符号链接：只删链接不删目标
+// 9. 符号链接：只删链接不删目标（指向文件）
 {
   const targetFile = path.join(tmp, "link-target");
   fs.writeFileSync(targetFile, "keep me");
@@ -146,6 +146,60 @@ function ok(name) {
   assert.ok(!fs.existsSync(link), "symlink should be gone");
   assert.ok(fs.existsSync(targetFile), "symlink target must survive");
   ok("symlink removal keeps target intact");
+}
+
+// 9b. 回归测试：指向目录的符号链接不能误删目标内容
+// 历史 bug：manual_remove_dir_all 用 entry.metadata()（跟随链接）判断目录，
+// 会把"指向目录的链接"当真实子目录递归进目标删除。修复后用 entry.file_type()
+// （不跟随）判断，只删链接本身。
+{
+  const realDir = path.join(tmp, "real-dir");
+  fs.mkdirSync(realDir, { recursive: true });
+  fs.writeFileSync(path.join(realDir, "a.txt"), "do not delete me");
+  fs.writeFileSync(path.join(realDir, "b.txt"), "nor me");
+  const linkDir = path.join(tmp, "link-to-dir");
+  fs.symlinkSync(realDir, linkDir, "dir"); // 指向目录的符号链接
+  removeSync(linkDir);
+  assert.ok(!fs.existsSync(linkDir), "symlink to dir should be gone");
+  assert.ok(fs.existsSync(realDir), "target dir must survive");
+  assert.ok(fs.existsSync(path.join(realDir, "a.txt")), "target content must survive");
+  assert.ok(fs.existsSync(path.join(realDir, "b.txt")), "target content must survive");
+  ok("symlink-to-dir removal keeps target dir intact (regression)");
+}
+
+// 9c. 集成测试：深层大目录树 + 内含符号链接（目标在树外）
+// 作为后续并行删除实现的回归守护：
+//   - 整棵树必须被干净删除（不漏删、不残留空目录）
+//   - 指向文件 / 指向目录的符号链接只删链接本身，绝不跟随进“树外目标”删除
+// 并行化最容易踩的两个坑（漏删、把链接当目录递归进目标）都会被本例捕获。
+{
+  const tree = path.join(tmp, "big-tree");
+  // 生成 400 个文件、深度 4 的嵌套目录树
+  generate({ dir: tree, count: 400, size: 512, depth: 4, prefix: "f" });
+
+  // 真实目标放在“树之外”，才能区分“链接目标被删”与“树内内容被删”
+  const outside = path.join(tmp, "outside-target");
+  fs.mkdirSync(outside, { recursive: true });
+  fs.writeFileSync(path.join(outside, "keep.txt"), "must survive");
+
+  // 根层：指向文件的链接
+  fs.symlinkSync(path.join(outside, "keep.txt"), path.join(tree, "link-file"));
+  // 根层：指向目录的链接
+  fs.symlinkSync(outside, path.join(tree, "link-dir"), "dir");
+  // 深层子目录：再放一个指向目录的链接，覆盖深层场景
+  const deep = path.join(tree, "sub", "deeper");
+  fs.mkdirSync(deep, { recursive: true });
+  fs.symlinkSync(outside, path.join(deep, "deep-link-dir"), "dir");
+
+  removeSync(tree);
+
+  assert.ok(!fs.existsSync(tree), "entire tree must be removed (no leftover)");
+  assert.ok(fs.existsSync(outside), "outside target dir must survive (link not followed)");
+  assert.ok(
+    fs.existsSync(path.join(outside, "keep.txt")),
+    "outside target content must survive (link not followed)"
+  );
+  ok("integration: big tree + symlinks removed cleanly, target intact (parallel-guard)");
 }
 
 // 10. pathExists helper
