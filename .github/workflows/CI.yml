@@ -95,13 +95,15 @@ jobs:
           echo "Publishing version: $VERSION"
 
           # 1) Sync version into package.json + Cargo.toml.
+          # Pass VERSION as argv (process.argv[2]) — robust against any shell/env quirks.
           node -e "
             const fs = require('fs');
+            const version = process.argv[2];
             const pkgPath = 'package.json';
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-            pkg.version = process.env.VERSION;
+            pkg.version = version;
             for (const k of Object.keys(pkg.optionalDependencies || {})) {
-              pkg.optionalDependencies[k] = process.env.VERSION;
+              pkg.optionalDependencies[k] = version;
             }
             // Normalize repository.url without npm pkg fix (which can drop version).
             if (pkg.repository && typeof pkg.repository.url === 'string') {
@@ -112,7 +114,7 @@ jobs:
             }
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
             console.log('Updated package.json version to:', pkg.version);
-          "
+          " "$VERSION"
           sed -i.bak "s/^version = .*/version = \"$VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak
           grep '^version' Cargo.toml | head -1
           grep '"version"' package.json | head -1
