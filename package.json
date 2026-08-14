@@ -1,6 +1,6 @@
 {
   "name": "@yanit/rmd",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A fast cross-platform file/directory removal tool written in Rust — a rimraf alternative",
   "keywords": [
     "rimraf",
@@ -41,17 +41,18 @@
     "build:debug": "napi build --platform --js native.js",
     "build:all": "napi build --platform --release --target x86_64-pc-windows-msvc --js native.js && napi build --platform --release --target aarch64-pc-windows-msvc --js native.js && napi build --platform --release --target x86_64-apple-darwin --js native.js && napi build --platform --release --target aarch64-apple-darwin --js native.js && napi build --platform --release --target x86_64-unknown-linux-gnu --js native.js && napi build --platform --release --target aarch64-unknown-linux-gnu --js native.js && napi build --platform --release --target x86_64-unknown-linux-musl --js native.js",
     "prepublishOnly": "npm run build",
+    "release": "node scripts/release.mjs",
     "test": "node test/index.test.js"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3"
   },
   "optionalDependencies": {
-    "@yanit/rmd-darwin-x64": "0.1.3",
-    "@yanit/rmd-darwin-arm64": "0.1.3",
-    "@yanit/rmd-linux-x64-gnu": "0.1.3",
-    "@yanit/rmd-linux-arm64-gnu": "0.1.3",
-    "@yanit/rmd-linux-x64-musl": "0.1.3",
-    "@yanit/rmd-linux-arm64-musl": "0.1.3"
+    "@yanit/rmd-darwin-x64": "0.1.4",
+    "@yanit/rmd-darwin-arm64": "0.1.4",
+    "@yanit/rmd-linux-x64-gnu": "0.1.4",
+    "@yanit/rmd-linux-arm64-gnu": "0.1.4",
+    "@yanit/rmd-linux-x64-musl": "0.1.4",
+    "@yanit/rmd-linux-arm64-musl": "0.1.4"
   }
 }
