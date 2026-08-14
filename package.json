@@ -1,0 +1,59 @@
+{
+  "name": "tuari-rmd",
+  "version": "0.1.0",
+  "description": "A fast cross-platform file/directory removal tool written in Rust — a rimraf alternative",
+  "keywords": [
+    "rimraf",
+    "remove",
+    "delete",
+    "rm",
+    "rmdir",
+    "recursive",
+    "cross-platform",
+    "rust",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "your-name",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/tuari-rmd"
+  },
+  "homepage": "https://github.com/your-username/tuari-rmd#readme",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "tuari-rmd": "bin/tuari-rmd.js"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "native.js",
+    "native.d.ts",
+    "bin",
+    "*.node"
+  ],
+  "engines": {
+    "node": ">= 14"
+  },
+  "scripts": {
+    "build": "napi build --platform --release --js native.js",
+    "build:debug": "napi build --platform --js native.js",
+    "build:all": "napi build --platform --release --target x86_64-pc-windows-msvc --js native.js && napi build --platform --release --target aarch64-pc-windows-msvc --js native.js && napi build --platform --release --target x86_64-apple-darwin --js native.js && napi build --platform --release --target aarch64-apple-darwin --js native.js && napi build --platform --release --target x86_64-unknown-linux-gnu --js native.js && napi build --platform --release --target aarch64-unknown-linux-gnu --js native.js && napi build --platform --release --target x86_64-unknown-linux-musl --js native.js",
+    "prepublishOnly": "npm run build",
+    "test": "node test/index.test.js"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.4"
+  },
+  "optionalDependencies": {
+    "tuari-rmd-win32-x64-msvc": "0.1.0",
+    "tuari-rmd-win32-arm64-msvc": "0.1.0",
+    "tuari-rmd-darwin-x64": "0.1.0",
+    "tuari-rmd-darwin-arm64": "0.1.0",
+    "tuari-rmd-linux-x64-gnu": "0.1.0",
+    "tuari-rmd-linux-arm64-gnu": "0.1.0",
+    "tuari-rmd-linux-x64-musl": "0.1.0",
+    "tuari-rmd-linux-arm64-musl": "0.1.0"
+  }
+}

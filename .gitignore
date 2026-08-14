@@ -1,0 +1,11 @@
+node_modules/
+target/
+# napi 生成的原生二进制（发布时由 CI 构建，不应提交）
+index.*.node
+*.node
+Cargo.lock
+.DS_Store
+dist/
+*.log
+artifacts/
+binaries/

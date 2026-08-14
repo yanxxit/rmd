@@ -1,0 +1,8 @@
+src/
+target/
+Cargo.toml
+build.rs
+.gitignore
+.github/
+test/
+*.node
