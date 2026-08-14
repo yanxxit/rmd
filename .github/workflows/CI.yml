@@ -98,6 +98,7 @@ jobs:
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
           "
           sed -i.bak "s/^version = .*/version = \"$VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak
+          npm pkg fix    # normalize repository.url etc. so npm publish is happy
           grep '^version' Cargo.toml | head -1
           grep '"version"' package.json | head -1
       - name: Move artifacts
@@ -110,7 +111,9 @@ jobs:
       - name: Build all platform packages & publish
         run: |
           npm install
-          npx --yes napi prepublish -t binaries
+          # --gh-release requires GITHUB_TOKEN (provided below) and creates a GitHub release.
+          npx --yes napi prepublish -t binaries --gh-release --tag-style npm
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

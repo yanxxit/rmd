@@ -1,6 +1,6 @@
 [package]
 name = "rmd"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 license = "MIT"
 description = "A fast cross-platform file/directory removal tool, written in Rust (rimraf alternative)"
