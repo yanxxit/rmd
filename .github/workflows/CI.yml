@@ -99,6 +99,7 @@ jobs:
               pkg.optionalDependencies[k] = process.env.VERSION;
             }
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+            console.log('Updated package.json version to:', pkg.version);
           "
           sed -i.bak "s/^version = .*/version = \"$VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak
           npm pkg fix    # normalize repository.url etc. so npm publish is happy
@@ -114,6 +115,8 @@ jobs:
       - name: Build all platform packages & publish to npm
         run: |
           npm install
+          # Sanity-check version sync + valid JSON before napi touches anything.
+          node -e 'const fs = require("fs"); const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); const v = pkg.version; if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(v)) { console.error("Invalid version in package.json:", v); process.exit(1); } const allOpt = Object.values(pkg.optionalDependencies || {}).every((x) => x === v); console.log("Pre-publish version:", v, "| optionalDeps in sync:", allOpt); if (!allOpt) process.exit(1);'
           # napi v3 prepublish always creates a GitHub Release (no --no-gh-release
           # flag exists); it needs GITHUB_TOKEN + `contents: write` (declared above).
           # Use the project-locked @napi-rs/cli (not npx --yes remote fetch).
