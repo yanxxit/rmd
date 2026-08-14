@@ -116,8 +116,10 @@ jobs:
           npm install
           # Explicitly disable napi's own GitHub Release creation; releases are
           # handled by the dedicated action below (more reliable permissions).
-          npx --yes napi prepublish -t binaries --no-gh-release
-          npm publish --access public
+          # Use the project-locked @napi-rs/cli (not npx --yes remote fetch).
+          npx napi prepublish -t binaries --no-gh-release
+          # --ignore-scripts guards against any stray lifecycle hooks interfering.
+          npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Create GitHub Release
