@@ -13,10 +13,10 @@ high-performance alternative to [`rimraf`](https://www.npmjs.com/package/rimraf)
 ## Install
 
 ```bash
-npm install rmd
+npm install @yanit/rmd
 # or
-pnpm add rmd
-yarn add rmd
+pnpm add @yanit/rmd
+yarn add @yanit/rmd
 ```
 
 The correct native binary is pulled in automatically via optional dependencies.
@@ -85,7 +85,7 @@ time rmd -rf ./sandbox
 The generator is also a reusable module:
 
 ```js
-const { generate, parseSize } = require("rmd/bin/gen");
+const { generate, parseSize } = require("@yanit/rmd/bin/gen");
 const r = generate({ dir: "./sandbox", count: 1000, size: parseSize("1m"), depth: 2 });
 console.log(r.files, r.bytes); // 1000, 1048576000
 ```
@@ -93,7 +93,7 @@ console.log(r.files, r.bytes); // 1000, 1048576000
 ## Node.js API
 
 ```js
-const { removeSync, removeAsync, pathExists } = require("rmd");
+const { removeSync, removeAsync, pathExists } = require("@yanit/rmd");
 
 // Synchronous
 removeSync("dist");
@@ -109,7 +109,7 @@ if (pathExists("stale")) removeSync("stale");
 ### TypeScript
 
 ```ts
-import { removeSync, removeAsync, pathExists } from "rmd";
+import { removeSync, removeAsync, pathExists } from "@yanit/rmd";
 
 removeSync("./dist");
 await removeAsync(["./build", "./.tmp"]);
@@ -154,7 +154,7 @@ Or in JS code:
 ```js
 // before: const rimraf = require('rimraf')
 // after:
-const { removeSync } = require("rmd");
+const { removeSync } = require("@yanit/rmd");
 removeSync("dist");
 ```
 
@@ -180,7 +180,7 @@ npm run build        # builds index.<platform>.node + native.js
 npm publish --access public
 ```
 
-Consumers then simply `npm install rmd` and the correct prebuilt
+Consumers then simply `npm install @yanit/rmd` and the correct prebuilt
 binary is fetched via `optionalDependencies` — no Rust toolchain required.
 
 ## License
