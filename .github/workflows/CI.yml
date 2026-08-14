@@ -59,7 +59,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y musl-tools
-      - run: npm ci
+      - run: npm install
       - run: ${{ matrix.settings.build }}
       - uses: actions/upload-artifact@v5
         with:
@@ -109,7 +109,7 @@ jobs:
           ls -la binaries
       - name: Build all platform packages & publish
         run: |
-          npm ci
+          npm install
           npx --yes napi prepublish -t binaries
           npm publish --access public
         env:
