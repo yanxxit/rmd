@@ -2,12 +2,14 @@ name: CI
 
 on:
   push:
+    # 分支模式构建当前不支持，先注释掉。
     # 本地默认分支是 master，监听它以在 push 时跑构建校验。
-    branches: [master, main]
-    # 仅匹配 vX.Y.Z 形式的 tag，避免孤儿 tag（如 `v`）误触发发布。
+    # branches: [master, main]
+    # 仅匹配 vX.Y.Z 形式的 tag 触发发布（推荐路径）。
     tags: ["v*"]
-  pull_request:
-    branches: [master, main]
+  # PR 模式构建当前不支持，先注释掉。
+  # pull_request:
+  #   branches: [master, main]
 
 jobs:
   # Build every platform's prebuilt .node binary.
