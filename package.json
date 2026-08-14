@@ -20,6 +20,7 @@
     "url": "https://github.com/yanxxit/rmd"
   },
   "homepage": "https://github.com/yanxxit/rmd#readme",
+  "type": "module",
   "main": "index.js",
   "types": "index.d.ts",
   "bin": {
@@ -28,7 +29,7 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "native.js",
+    "native.cjs",
     "native.d.ts",
     "bin",
     "*.node"
@@ -37,8 +38,8 @@
     "node": ">= 14"
   },
   "scripts": {
-    "build": "napi build --platform --release --js native.js",
-    "build:debug": "napi build --platform --js native.js",
+    "build": "napi build --platform --release --js native.cjs",
+    "build:debug": "napi build --platform --js native.cjs",
     "build:all": "node scripts/build-all.mjs",
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run",

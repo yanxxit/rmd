@@ -103,7 +103,7 @@ time rmd -rf ./sandbox
 The generator is also a reusable module:
 
 ```js
-const { generate, parseSize } = require("@yanit/rmd/bin/gen");
+import { generate, parseSize } from "@yanit/rmd/bin/gen";
 const r = generate({ dir: "./sandbox", count: 1000, size: parseSize("1m"), depth: 2 });
 console.log(r.files, r.bytes); // 1000, 1048576000
 ```
@@ -111,7 +111,7 @@ console.log(r.files, r.bytes); // 1000, 1048576000
 ## Node.js API
 
 ```js
-const { removeSync, removeAsync, pathExists } = require("@yanit/rmd");
+import { removeSync, removeAsync, pathExists } from "@yanit/rmd";
 
 // Synchronous
 removeSync("dist");
@@ -172,7 +172,7 @@ Or in JS code:
 ```js
 // before: const rimraf = require('rimraf')
 // after:
-const { removeSync } = require("@yanit/rmd");
+import { removeSync } from "@yanit/rmd";
 removeSync("dist");
 ```
 
@@ -218,7 +218,7 @@ npm run release:dry
 4. run `npm publish --access public`.
 
 The correct binary for the consumer's platform is loaded at runtime by
-`native.js` (it prefers the local `index.<platform>.node` file).
+`native.cjs` (it prefers the local `index.<platform>.node` file).
 
 Consumers simply `npm install @yanit/rmd` — no Rust toolchain required.
 

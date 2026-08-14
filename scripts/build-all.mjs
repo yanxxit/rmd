@@ -8,7 +8,7 @@
 // platforms you did build).
 //
 // All artifacts land in the repo root as index.<platform>.node and are
-// picked up by native.js (local file takes precedence over sub-packages).
+// picked up by native.cjs (local file takes precedence over sub-packages).
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
@@ -88,13 +88,13 @@ for (const t of TARGETS) {
   const env = { ...process.env, ...(t.env || {}) };
   run(
     "npx",
-    ["--yes", "napi", "build", "--platform", "--release", "--target", t.triple, "--js", "native.js"],
+    ["--yes", "napi", "build", "--platform", "--release", "--target", t.triple, "--js", "native.cjs"],
     { env }
   );
 }
 
 // Move generated index.<triple>.node files into repo root (napi emits them
-// already named per platform; ensure they are at root for native.js to find).
+// already named per platform; ensure they are at root for native.cjs to find).
 console.log("\n==> Build complete. Artifacts in repo root:");
 for (const f of readdirSync(root)) {
   if (f.endsWith(".node")) console.log("   " + f);

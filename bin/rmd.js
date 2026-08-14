@@ -1,191 +1,108 @@
 #!/usr/bin/env node
-"use strict";
+// rmd — fast recursive removal CLI (Rust core via @yanit/rmd).
 
-const { removeSync, removeAsync, pathExists } = require("../index");
-const { resolve, isAbsolute } = require("path");
+import { resolve } from "node:path";
+import { removeSync, removeAsync, pathExists } from "../index.js";
+import { runGenCli } from "./gen.js";
 
-const GEN_HELP = `
-rmd gen — generate test files/directories
+function showHelp() {
+  console.log(`rmd - fast recursive removal (rimraf alternative)
 
 Usage:
-  rmd gen <dir> [options]
+  rmd [options] <path...>
+  rmd gen <dir> [gen-options]   generate test data
 
 Options:
-  -n, --count <num>     number of files to create (default 100)
-  -s, --size <str>      size per file, e.g. 1k / 2m / 512 (default 1k)
-  -d, --depth <num>     nested directory depth, 1 = flat (default 1)
-  --prefix <str>        filename prefix (default "file")
-  --readonly            mark 1/3 of files read-only (to test rmd on RO files)
-  -h, --help            show this help
-
-Examples:
-  rmd gen ./sandbox -n 1000 -s 1m
-  rmd gen ./sandbox -n 5000 -s 2k -d 3 --readonly
-`;
-
-const HELP = `
-rmd — fast cross-platform removal (rimraf alternative, written in Rust)
-
-Usage:
-  rmd gen <dir> [options]          generate test files
-  rmd [options] <path...>          remove files/directories
-
-Remove options:
-  -r, --recursive   Allow recursive deletion of directories (always on for safety)
-  -f, --force       No error if target does not exist
-  -v, --verbose     Print each removed path
-      --dry-run     Show what would be removed without deleting
-      --async       Use async API
-  -h, --help        Show this help
+  -r, --recursive   allow recursive deletion (default on)
+  -f, --force       no error if target missing (default on)
+  -v, --verbose     print each removed path
+  --dry-run         show what would be removed (no removal)
+  --async           use async API
+  -h, --help        show this help
 
 Examples:
   rmd dist
-  rmd -rf node_modules .cache "*.tmp"
+  rmd -rf node_modules .cache
   rmd --dry-run build
-  rmd gen ./sandbox -n 2000 -s 1m && rmd -rf ./sandbox
-`;
-
-function parseRemoveArgs(argv) {
-  const opts = {
-    targets: [],
-    recursive: false,
-    force: false,
-    verbose: false,
-    dryRun: false,
-    async: false,
-    help: false,
-  };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    switch (a) {
-      case "-r":
-      case "-rf":
-      case "-fr":
-      case "--recursive":
-        opts.recursive = true;
-        break;
-      case "-f":
-      case "--force":
-        opts.force = true;
-        break;
-      case "-v":
-      case "--verbose":
-        opts.verbose = true;
-        break;
-      case "--dry-run":
-        opts.dryRun = true;
-        break;
-      case "--async":
-        opts.async = true;
-        break;
-      case "-h":
-      case "--help":
-        opts.help = true;
-        break;
-      default:
-        if (a.startsWith("-") && a !== "-") {
-          console.error(`Unknown option: ${a}`);
-          process.exit(1);
-        }
-        opts.targets.push(a);
-    }
-  }
-  return opts;
+  rmd --async "*.tmp"`);
 }
 
-function expandGlob(p) {
-  // 轻量 glob：支持 * 与 **
-  if (!/[*?{}[\]]/.test(p)) return [p];
-  try {
-    const { globSync } = require("glob");
-    return globSync(p, { nodir: false, dot: true });
-  } catch {
-    // 没有 glob 依赖时退化为直接路径
-    return [p];
-  }
-}
+async function main() {
+  const argv = process.argv.slice(2);
 
-function runRemove() {
-  const opts = parseRemoveArgs(process.argv.slice(3));
-  if (opts.help) {
-    console.log(HELP);
-    return;
-  }
-  if (opts.targets.length === 0) {
-    console.error("rmd: no path specified. Use -h for help.");
-    process.exit(1);
-  }
-
-  // 安全保护：禁止直接删除根目录或当前目录
-  const resolved = [];
-  for (const t of opts.targets) {
-    const base = isAbsolute(t) ? t : resolve(process.cwd(), t);
-    const norm = base.replace(/[/\\]+$/, "");
-    const isRoot =
-      norm === "/" ||
-      norm === "" ||
-      /^([A-Za-z]:)?[\\/]?$/.test(norm);
-    if (isRoot) {
-      console.error(`rmd: refusing to remove "${t}" (unsafe target)`);
-      process.exit(1);
-    }
-    if (norm === resolve(process.cwd())) {
-      console.error(`rmd: refusing to remove the current working directory`);
-      process.exit(1);
-    }
-    for (const g of expandGlob(t)) {
-      resolved.push(g);
-    }
-  }
-
-  if (opts.dryRun) {
-    for (const t of resolved) {
-      const exists = pathExists(t);
-      console.log(`${exists ? "would remove" : "not found"}: ${t}`);
-    }
+  // route to generator subcommand
+  if (argv[0] === "gen") {
+    runGenCli();
     return;
   }
 
-  const toRemove = resolved;
-  const doRemove = opts.async
-    ? removeAsync
-    : (p) => Promise.resolve(removeSync(p));
-
-  const missing = toRemove.filter((t) => !pathExists(t));
-  if (missing.length && !opts.force) {
-    for (const m of missing)
-      console.error(`rmd: ${m}: No such file or directory`);
-  }
-
-  const run = async () => {
-    try {
-      const t0 = Date.now();
-      await doRemove(toRemove);
-      const dt = ((Date.now() - t0) / 1000).toFixed(2);
-      if (opts.verbose) {
-        for (const t of toRemove) console.log(`removed: ${t}`);
+  let verbose = false;
+  let dryRun = false;
+  let useAsync = false;
+  const targets = [];
+  for (const a of argv) {
+    if (a === "-h" || a === "--help") return showHelp();
+    if (a === "-v" || a === "--verbose") verbose = true;
+    else if (a === "--dry-run") dryRun = true;
+    else if (a === "--async") useAsync = true;
+    else if (a === "-r" || a === "--recursive" || a === "-f" || a === "--force") {
+      /* accepted, default behavior */
+    } else if (a.startsWith("-") && a.length > 1 && !a.startsWith("--")) {
+      // clustered short flags, e.g. -rf  ->  -r -f
+      const flags = a.slice(1).split("");
+      let known = true;
+      for (const c of flags) {
+        if (c === "r") { /* recursive */ }
+        else if (c === "f") { /* force */ }
+        else if (c === "v") verbose = true;
+        else { known = false; }
       }
-      console.error(`rmd: removed ${toRemove.length} target(s) in ${dt}s`);
-    } catch (e) {
-      console.error(`rmd: ${e.message || e}`);
-      process.exitCode = 1;
+      if (!known) {
+        console.error(`rmd: unknown flag ${a}`);
+        process.exit(1);
+      }
+    } else if (a.startsWith("-") && a !== "-") {
+      console.error(`rmd: unknown flag ${a}`);
+      process.exit(1);
+    } else targets.push(a);
+  }
+
+  if (targets.length === 0) {
+    return showHelp();
+  }
+
+  if (dryRun) {
+    let removed = 0;
+    for (const t of targets) {
+      const p = resolve(t);
+      if (pathExists(p)) {
+        console.log(`would remove: ${p}`);
+        removed++;
+      } else {
+        console.log(`(not found) skip: ${p}`);
+      }
     }
-  };
-
-  run();
-}
-
-function main() {
-  const sub = process.argv[2];
-  if (sub === "gen" || sub === "generate") {
-    require("./gen.js").runGenCli(process.argv.slice(3));
+    console.log(`dry-run: ${removed} path(s) would be removed`);
     return;
   }
-  if (sub === "-h" || sub === "--help" || sub === undefined) {
-    console.log(HELP);
-    return;
+
+  const t0 = Date.now();
+  if (useAsync) {
+    for (const t of targets) {
+      await removeAsync(resolve(t));
+      if (verbose) console.log(`removed: ${resolve(t)}`);
+    }
+  } else {
+    for (const t of targets) {
+      removeSync(resolve(t));
+      if (verbose) console.log(`removed: ${resolve(t)}`);
+    }
   }
-  runRemove();
+  const dt = ((Date.now() - t0) / 1000).toFixed(2);
+  if (verbose) console.log(`done in ${dt}s`);
 }
 
-main();
+main().catch((e) => {
+  console.error(e && e.message ? e.message : e);
+  process.exit(1);
+});
