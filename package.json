@@ -1,6 +1,6 @@
 {
   "name": "@yanit/rmd",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "A fast cross-platform file/directory removal tool written in Rust — a rimraf alternative",
   "keywords": [
     "rimraf",
@@ -47,11 +47,11 @@
     "@napi-rs/cli": "^3"
   },
   "optionalDependencies": {
-    "@yanit/rmd-darwin-x64": "0.1.11",
-    "@yanit/rmd-darwin-arm64": "0.1.11",
-    "@yanit/rmd-linux-x64-gnu": "0.1.11",
-    "@yanit/rmd-linux-arm64-gnu": "0.1.11",
-    "@yanit/rmd-linux-x64-musl": "0.1.11",
-    "@yanit/rmd-linux-arm64-musl": "0.1.11"
+    "@yanit/rmd-darwin-x64": "0.1.12",
+    "@yanit/rmd-darwin-arm64": "0.1.12",
+    "@yanit/rmd-linux-x64-gnu": "0.1.12",
+    "@yanit/rmd-linux-arm64-gnu": "0.1.12",
+    "@yanit/rmd-linux-x64-musl": "0.1.12",
+    "@yanit/rmd-linux-arm64-musl": "0.1.12"
   }
 }
