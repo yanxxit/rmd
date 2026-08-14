@@ -115,6 +115,24 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+      - name: Sync version from tag
+        run: |
+          # Tag is like "v0.1.2"; derive "0.1.2" and write it everywhere.
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Publishing version: $VERSION"
+          node -e "
+            const fs = require('fs');
+            const pkgPath = 'package.json';
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+            pkg.version = process.env.VERSION;
+            for (const k of Object.keys(pkg.optionalDependencies || {})) {
+              pkg.optionalDependencies[k] = process.env.VERSION;
+            }
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+          "
+          sed -i.bak "s/^version = .*/version = \"$VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak
+          grep '^version' Cargo.toml | head -1
+          grep '"version"' package.json | head -1
       - name: Move artifacts
         run: |
           mkdir -p binaries
