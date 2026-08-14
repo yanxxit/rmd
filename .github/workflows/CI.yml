@@ -98,11 +98,17 @@ jobs:
             for (const k of Object.keys(pkg.optionalDependencies || {})) {
               pkg.optionalDependencies[k] = process.env.VERSION;
             }
+            // Normalize repository.url without npm pkg fix (which can drop version).
+            if (pkg.repository && typeof pkg.repository.url === 'string') {
+              let u = pkg.repository.url;
+              if (!u.startsWith('git+')) u = 'git+' + u;
+              if (!u.endsWith('.git')) u = u + '.git';
+              pkg.repository.url = u;
+            }
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
             console.log('Updated package.json version to:', pkg.version);
           "
           sed -i.bak "s/^version = .*/version = \"$VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak
-          npm pkg fix    # normalize repository.url etc. so npm publish is happy
           grep '^version' Cargo.toml | head -1
           grep '"version"' package.json | head -1
       - name: Move artifacts
