@@ -5,6 +5,9 @@
 //   node scripts/release.mjs            # bump patch by 1 (0.1.3 -> 0.1.4), build all, publish
 //   node scripts/release.mjs 0.2.0      # set an explicit version
 //   node scripts/release.mjs --dry-run  # show what would change, do nothing
+//   node scripts/release.mjs --no-publish  # bump + build, but skip `npm publish`
+//                                        # (used by release-and-push.mjs which
+//                                        #  commits, tags and pushes instead)
 //
 // This script:
 //   1. reads current version from package.json
@@ -12,7 +15,7 @@
 //   3. updates package.json (version) + Cargo.toml (version)
 //   4. regenerates package-lock.json via `npm install`
 //   5. builds all platforms into the repo root (index.<platform>.node)
-//   6. runs `npm publish --access public`
+//   6. runs `npm publish --access public` (unless --no-publish)
 //
 // The main package now ships every prebuilt .node binary directly (no
 // per-platform sub-packages), so publishing is a single local step — no
@@ -32,6 +35,7 @@ const runCapture = (cmd, args) =>
   execFileSync(cmd, args, { cwd: root, encoding: "utf8" }).trim();
 
 const DRY_RUN = process.argv.includes("--dry-run");
+const NO_PUBLISH = process.argv.includes("--no-publish");
 const explicit = process.argv.slice(2).find((a) => !a.startsWith("--"));
 
 const VERSION_RE = /^\d+\.\d+\.\d+$/;
@@ -123,7 +127,14 @@ if (DRY_RUN) {
   process.exit(0);
 }
 
-// --- publish ---
+// --- publish (unless skipped) ---
+if (NO_PUBLISH) {
+  console.log(
+    `\n⏭️  Skipped npm publish (--no-publish). Version is now ${target}.`
+  );
+  process.exit(0);
+}
+
 run("npm", ["publish", "--access", "public"]);
 
 console.log(`\n✅ Published @yanit/rmd@${target} to npm.`);

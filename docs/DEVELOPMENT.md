@@ -184,6 +184,26 @@ npm run release:dry      # 预览，不发布
 5. 校验至少产出当前平台的 `.node`；
 6. `npm publish --access public`。
 
+`release.mjs` 支持 `--no-publish`（只升级版本 + 编译，不发布）与 `--dry-run`。
+
+### 5.3 路径 C：本地升级 + 提交 + 打 tag + 推送（触发 CI 发布）
+
+```bash
+npm run release:push          # 升级版本、构建、git 提交、创建 vX.Y.Z tag、推送
+npm run release:push 0.2.0    # 指定版本
+npm run release:push:dry      # 预览，不改动
+```
+
+`scripts/release-and-push.mjs` 流程：
+
+1. `npm run release -- --no-publish`：自动升级版本 + 构建（**不发布到 npm**）；
+2. `git add -A && git commit -m "chore: 发布 X.Y.Z 版本"`；
+3. `git tag vX.Y.Z`；
+4. `git push origin <branch>` 与 `git push origin vX.Y.Z`。
+
+tag 推送到 origin 后会触发 `.github/workflows/CI.yml` 自动构建并发布到 npm，
+因此该路径本地**不调用 `npm publish`**，避免重复发布。
+
 > 注意：`release.mjs` 的 `npm publish` 当前**不带 `--otp`**。若账号开启 2FA 且
 > 仅接受 OTP，需手动在脚本后追加 `--otp`，或改用 bypass-2fa token（推荐）。
 
