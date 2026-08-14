@@ -126,8 +126,8 @@ jobs:
           done
           ls -la binaries
 
-          # 3) Install dependencies.
-          npm install
+          # 3) Install dependencies (--ignore-scripts keeps package.json untouched).
+          npm install --ignore-scripts
 
           # 4) Re-verify version after install (guards against any tooling reset).
           node -e 'const fs = require("fs"); const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); const v = pkg.version; if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(v)) { console.error("Invalid version in package.json:", v); process.exit(1); } const allOpt = Object.values(pkg.optionalDependencies || {}).every((x) => x === v); console.log("Pre-publish version:", v, "| optionalDeps in sync:", allOpt); if (!allOpt) process.exit(1);'
