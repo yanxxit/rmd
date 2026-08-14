@@ -13,12 +13,14 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: windows-latest
+          # Windows targets are cross-compiled from Linux via cargo-xwin (--cross-compile),
+          # which reliably fetches the MSVC CRT / Windows SDK for both x64 and arm64.
+          - host: ubuntu-latest
             target: x86_64-pc-windows-msvc
-            build: npx --yes napi build --platform --release --target x86_64-pc-windows-msvc --js native.js
-          - host: windows-latest
+            build: npx --yes napi build --platform --release --target x86_64-pc-windows-msvc --cross-compile --js native.js
+          - host: ubuntu-latest
             target: aarch64-pc-windows-msvc
-            build: npx --yes napi build --platform --release --target aarch64-pc-windows-msvc --js native.js
+            build: npx --yes napi build --platform --release --target aarch64-pc-windows-msvc --cross-compile --js native.js
           - host: macos-13
             target: x86_64-apple-darwin
             build: npx --yes napi build --platform --release --target x86_64-apple-darwin --js native.js
@@ -62,9 +64,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y musl-tools
-      - name: Setup MSVC (Windows)
+      - name: Install clang (needed for windows cross-compile via cargo-xwin)
         if: ${{ contains(matrix.settings.target, 'windows') }}
-        uses: ilammy/msvc-dev-cmd@v1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
       - run: npm install
       - run: ${{ matrix.settings.build }}
       - uses: actions/upload-artifact@v4
