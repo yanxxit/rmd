@@ -14,12 +14,12 @@
     "cli"
   ],
   "license": "MIT",
-  "author": "your-name",
+  "author": "yanxxit",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/rmd"
+    "url": "https://github.com/yanxxit/rmd"
   },
-  "homepage": "https://github.com/your-username/rmd#readme",
+  "homepage": "https://github.com/yanxxit/rmd#readme",
   "main": "index.js",
   "types": "index.d.ts",
   "bin": {
