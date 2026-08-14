@@ -95,10 +95,12 @@ jobs:
           echo "Publishing version: $VERSION"
 
           # 1) Sync version into package.json + Cargo.toml.
-          # Pass VERSION as argv (process.argv[2]) — robust against any shell/env quirks.
+          # Use process.env.VERSION (node inherits the shell var). Passing via
+          # argv with a trailing "$VERSION" breaks because the multi-line
+          # double-quoted node script has nested quotes that mis-terminate.
           node -e "
             const fs = require('fs');
-            const version = process.argv[2];
+            const version = process.env.VERSION;
             const pkgPath = 'package.json';
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
             pkg.version = version;
@@ -114,7 +116,7 @@ jobs:
             }
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
             console.log('Updated package.json version to:', pkg.version);
-          " "$VERSION"
+          "
           sed -i.bak "s/^version = .*/version = \"$VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak
           grep '^version' Cargo.toml | head -1
           grep '"version"' package.json | head -1
