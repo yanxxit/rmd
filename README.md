@@ -160,28 +160,49 @@ removeSync("dist");
 
 ## Publishing to npm
 
-The native binaries for every platform are built and published
-automatically by GitHub Actions (see `.github/workflows/CI.yml`):
+This package ships **all** prebuilt `.node` binaries directly in the main
+package (no per-platform sub-packages).
+
+### Default: GitHub Actions (CI)
+
+Pushing a git tag triggers `.github/workflows/CI.yml`, which builds all
+platforms and publishes `@yanit/rmd@<tag>` automatically:
 
 ```bash
-# 1. bump version in Cargo.toml and package.json
-# 2. commit & push a git tag
-git tag v0.1.0
-git push origin v0.1.0
-# 3. CI builds all 7 platforms, packs them as optional deps,
-#    and runs `npm publish` with NODE_AUTH_TOKEN
+# bump version + tag + push (CI takes over from the tag)
+npm run release           # bumps version, but NOTE: see local path below
 ```
 
-For a **local** publish of just the current platform (dev only):
+> On CI the tag drives the version. Just `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+### Fallback: local publish
+
+If CI fails, publish manually from your machine:
 
 ```bash
-npm install
-npm run build        # builds index.<platform>.node + native.js
-npm publish --access public
+# bump version (patch+1 by default), build all platforms, publish
+npm run release
+
+# or set an explicit version
+npm run release 0.2.0
+
+# preview without publishing
+npm run release:dry
 ```
 
-Consumers then simply `npm install @yanit/rmd` and the correct prebuilt
-binary is fetched via `optionalDependencies` — no Rust toolchain required.
+`npm run release` will:
+
+1. bump the version in `package.json` + `Cargo.toml`,
+2. regenerate `package-lock.json`,
+3. build every supported platform via `npm run build:all`
+   (auto-installing any missing Rust targets; Windows targets are skipped
+   locally since they can't be cross-compiled from macOS/Linux),
+4. run `npm publish --access public`.
+
+The correct binary for the consumer's platform is loaded at runtime by
+`native.js` (it prefers the local `index.<platform>.node` file).
+
+Consumers simply `npm install @yanit/rmd` — no Rust toolchain required.
 
 ## License
 

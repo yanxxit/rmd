@@ -8,7 +8,7 @@ on:
     branches: [main]
 
 jobs:
-  # Required builds: publish depends on all of these succeeding.
+  # Build every platform's prebuilt .node binary.
   # Windows targets are intentionally excluded (not published yet).
   build:
     strategy:
@@ -86,15 +86,10 @@ jobs:
         with:
           path: artifacts
       # Single step: sync version -> move artifacts -> install -> verify -> publish.
-      # Keeping it all in one step removes any ambiguity about file state between
-      # steps (npm install cannot roll back the version we just wrote).
       - name: Sync version and publish
         env:
-          # Inject VERSION at the step-env level so node subprocesses see it
-          # via process.env (a plain shell `VERSION=x` is NOT exported to children).
           VERSION: ${{ github.ref_name }}
         run: |
-          # Tag is like "v0.1.3"; derive "0.1.3" and write it everywhere.
           echo "Publishing version: $VERSION"
 
           # 1) Sync version into package.json + Cargo.toml.
@@ -104,16 +99,6 @@ jobs:
             const pkgPath = 'package.json';
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
             pkg.version = version;
-            for (const k of Object.keys(pkg.optionalDependencies || {})) {
-              pkg.optionalDependencies[k] = version;
-            }
-            // Normalize repository.url without npm pkg fix (which can drop version).
-            if (pkg.repository && typeof pkg.repository.url === 'string') {
-              let u = pkg.repository.url;
-              if (!u.startsWith('git+')) u = 'git+' + u;
-              if (!u.endsWith('.git')) u = u + '.git';
-              pkg.repository.url = u;
-            }
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
             console.log('Updated package.json version to:', pkg.version);
           "
@@ -121,26 +106,22 @@ jobs:
           grep '^version' Cargo.toml | head -1
           grep '"version"' package.json | head -1
 
-          # 2) Move build artifacts into place.
+          # 2) Move build artifacts into place (index.<platform>.node at repo root).
           mkdir -p binaries
           for d in artifacts/bindings-*/; do
             cp "$d"*.node binaries/ 2>/dev/null || true
           done
-          ls -la binaries
+          # The main package now ships every .node directly, so copy them to root.
+          cp binaries/*.node . 2>/dev/null || true
+          ls -la *.node
 
           # 3) Install dependencies (--ignore-scripts keeps package.json untouched).
           npm install --ignore-scripts
 
-          # 4) Re-verify version after install (guards against any tooling reset).
-          node -e 'const fs = require("fs"); const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); const v = pkg.version; if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(v)) { console.error("Invalid version in package.json:", v); process.exit(1); } const allOpt = Object.values(pkg.optionalDependencies || {}).every((x) => x === v); console.log("Pre-publish version:", v, "| optionalDeps in sync:", allOpt); if (!allOpt) process.exit(1);'
+          # 4) Re-verify version after install.
+          node -e 'const fs = require("fs"); const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); const v = pkg.version; if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(v)) { console.error("Invalid version in package.json:", v); process.exit(1); } console.log("Pre-publish version:", v);'
 
-          # 5) napi v3 prepublish always creates a GitHub Release (no --no-gh-release
-          #    flag exists); it needs GITHUB_TOKEN + `contents: write` (declared above).
-          #    Use the project-locked @napi-rs/cli (not npx --yes remote fetch).
-          npx napi prepublish -t binaries --gh-release --tag-style npm
-
-          # 6) --ignore-scripts guards against any stray lifecycle hooks interfering.
+          # 5) Publish the single package (all platforms embedded).
           npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

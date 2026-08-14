@@ -1,23 +1,25 @@
 #!/usr/bin/env node
-// Release helper for @yanit/rmd
+// Local publish helper for @yanit/rmd
 //
 // Usage:
-//   node scripts/release.mjs            # bump patch by 1 (0.1.3 -> 0.1.4), commit, tag, push
-//   node scripts/release.mjs 0.2.0      # set an explicit version, commit, tag, push
+//   node scripts/release.mjs            # bump patch by 1 (0.1.3 -> 0.1.4), build all, publish
+//   node scripts/release.mjs 0.2.0      # set an explicit version
 //   node scripts/release.mjs --dry-run  # show what would change, do nothing
 //
 // This script:
 //   1. reads current version from package.json
 //   2. computes the next version (patch+1, or the one you pass)
-//   3. updates package.json (version + all optionalDependencies), Cargo.toml (version)
-//   4. regenerates package-lock.json via `npm install` (keeps `npm ci` in CI happy)
-//   5. commits, creates tag vX.Y.Z, pushes master + tag
+//   3. updates package.json (version) + Cargo.toml (version)
+//   4. regenerates package-lock.json via `npm install`
+//   5. builds all platforms into the repo root (index.<platform>.node)
+//   6. runs `npm publish --access public`
 //
-// CI takes over from the tag: it syncs the publish version from the tag name,
-// builds the 6 platforms and publishes @yanit/rmd@X.Y.Z with its platform sub-packages.
+// The main package now ships every prebuilt .node binary directly (no
+// per-platform sub-packages), so publishing is a single local step — no
+// GitHub Actions / git tags required.
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -80,18 +82,9 @@ if (status && !DRY_RUN) {
   console.error("Working tree is not clean. Commit or stash your changes first:\n" + status);
   process.exit(1);
 }
-// make sure we are on the default branch and up to date enough
-const branch = runCapture("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
-console.log(`Current branch: ${branch}`);
 
 // --- update package.json ---
-const updatedPkg = {
-  ...pkg,
-  version: target,
-  optionalDependencies: Object.fromEntries(
-    Object.entries(pkg.optionalDependencies || {}).map(([k]) => [k, target])
-  ),
-};
+const updatedPkg = { ...pkg, version: target };
 writeFileSync(pkgPath, JSON.stringify(updatedPkg, null, 2) + "\n");
 
 // --- update Cargo.toml (version = "x.y.z") ---
@@ -100,34 +93,42 @@ let cargo = readFileSync(cargoPath, "utf8");
 cargo = cargo.replace(/^version = .*$/m, `version = "${target}"`);
 writeFileSync(cargoPath, cargo);
 
-// --- regenerate lockfile so `npm ci` in CI stays happy ---
+// --- regenerate lockfile ---
 if (!DRY_RUN) {
   run("npm", ["install"]);
 } else {
-  console.log("(dry-run) would run: npm install  # to resync package-lock.json");
+  console.log("(dry-run) would run: npm install");
 }
 
-// --- git commit + tag + push ---
-const tag = `v${target}`;
-const commitMsg = `chore: release ${target}`;
-const tagMsg = `Release ${target}`;
+// --- build all platforms ---
+if (DRY_RUN) {
+  console.log("(dry-run) would run: npm run build:all");
+} else {
+  run("npm", ["run", "build:all"]);
+}
+
+// --- pre-publish sanity: at least the current platform's .node must exist ---
+const platformNode = findLocalNode();
+if (!platformNode && !DRY_RUN) {
+  console.error(
+    "No .node binary was produced by the build. Aborting publish."
+  );
+  process.exit(1);
+}
 
 if (DRY_RUN) {
   console.log(`\n[DRY RUN] would execute:`);
-  console.log(`  git add package.json Cargo.toml package-lock.json`);
-  console.log(`  git commit -m "${commitMsg}"`);
-  console.log(`  git tag -a ${tag} -m "${tagMsg}"`);
-  console.log(`  git push origin ${branch}`);
-  console.log(`  git push origin ${tag}`);
-  console.log(`\nNo changes made.`);
+  console.log(`  npm publish --access public`);
+  console.log(`\nNo changes published.`);
   process.exit(0);
 }
 
-run("git", ["add", "package.json", "Cargo.toml", "package-lock.json"]);
-run("git", ["commit", "-m", commitMsg]);
-run("git", ["tag", "-a", tag, "-m", tagMsg]);
-run("git", ["push", "origin", branch]);
-run("git", ["push", "origin", tag]);
+// --- publish ---
+run("npm", ["publish", "--access", "public"]);
 
-console.log(`\n✅ Released ${target}. Tag ${tag} pushed — CI will build & publish @yanit/rmd@${target}.`);
-console.log(`   Watch it at: https://github.com/yanxxit/rmd/actions`);
+console.log(`\n✅ Published @yanit/rmd@${target} to npm.`);
+console.log(`   npm: https://www.npmjs.com/package/@yanit/rmd`);
+
+function findLocalNode() {
+  return readdirSync(root).find((f) => f.endsWith(".node"));
+}
