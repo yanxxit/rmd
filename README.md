@@ -1,4 +1,4 @@
-# tuari-rmd
+# rmd
 
 A fast, cross-platform file / directory removal tool written in **Rust** — a
 high-performance alternative to [`rimraf`](https://www.npmjs.com/package/rimraf).
@@ -13,10 +13,10 @@ high-performance alternative to [`rimraf`](https://www.npmjs.com/package/rimraf)
 ## Install
 
 ```bash
-npm install tuari-rmd
+npm install rmd
 # or
-pnpm add tuari-rmd
-yarn add tuari-rmd
+pnpm add rmd
+yarn add rmd
 ```
 
 The correct native binary is pulled in automatically via optional dependencies.
@@ -25,17 +25,17 @@ The correct native binary is pulled in automatically via optional dependencies.
 
 ```bash
 # remove a directory or file (recursive by default)
-tuari-rmd dist
-tuari-rmd -rf node_modules .cache
+rmd dist
+rmd -rf node_modules .cache
 
 # dry run — show what would be removed
-tuari-rmd --dry-run build
+rmd --dry-run build
 
 # verbose
-tuari-rmd -rfv tmp
+rmd -rfv tmp
 
 # async API internally
-tuari-rmd --async "*.tmp"
+rmd --async "*.tmp"
 ```
 
 Options:
@@ -49,10 +49,51 @@ Options:
 | `--async` | Use the async API |
 | `-h, --help` | Show help |
 
+## Generate test data (the `gen` command)
+
+`rmd` ships with a built-in generator so you can create large amounts of
+test data and then benchmark / verify the removal:
+
+```bash
+# generate 1000 files of 1 MiB each in ./sandbox (flat layout)
+rmd gen ./sandbox -n 1000 -s 1m
+
+# generate 5000 files of 2 KiB across 3 nested directory levels
+rmd gen ./sandbox -n 5000 -s 2k -d 3
+
+# also mark 1/3 of files read-only (good for testing RO handling)
+rmd gen ./sandbox -n 200 -s 1k --readonly
+
+# then delete it
+rmd -rf ./sandbox
+# optional: time it
+time rmd -rf ./sandbox
+```
+
+`gen` options:
+
+| Flag | Description |
+| --- | --- |
+| `<dir>` | target directory (created if missing) |
+| `-n, --count <num>` | number of files (default 100) |
+| `-s, --size <str>` | size per file, e.g. `512` `1k` `2m` `1g` (default `1k`) |
+| `-d, --depth <num>` | nested directory depth, `1` = flat (default 1) |
+| `--prefix <str>` | filename prefix (default `file`) |
+| `--readonly` | mark 1/3 of files read-only |
+| `-h, --help` | show help |
+
+The generator is also a reusable module:
+
+```js
+const { generate, parseSize } = require("rmd/bin/gen");
+const r = generate({ dir: "./sandbox", count: 1000, size: parseSize("1m"), depth: 2 });
+console.log(r.files, r.bytes); // 1000, 1048576000
+```
+
 ## Node.js API
 
 ```js
-const { removeSync, removeAsync, existsSync } = require("tuari-rmd");
+const { removeSync, removeAsync, pathExists } = require("rmd");
 
 // Synchronous
 removeSync("dist");
@@ -62,13 +103,13 @@ removeSync(["node_modules", ".cache"]);
 await removeAsync("build");
 
 // Check
-if (existsSync("stale")) removeSync("stale");
+if (pathExists("stale")) removeSync("stale");
 ```
 
 ### TypeScript
 
 ```ts
-import { removeSync, removeAsync, existsSync } from "tuari-rmd";
+import { removeSync, removeAsync, pathExists } from "rmd";
 
 removeSync("./dist");
 await removeAsync(["./build", "./.tmp"]);
@@ -103,7 +144,7 @@ behavior:
 // package.json
 {
   "scripts": {
-    "clean": "tuari-rmd -rf dist node_modules/.cache"
+    "clean": "rmd -rf dist node_modules/.cache"
   }
 }
 ```
@@ -113,7 +154,7 @@ Or in JS code:
 ```js
 // before: const rimraf = require('rimraf')
 // after:
-const { removeSync } = require("tuari-rmd");
+const { removeSync } = require("rmd");
 removeSync("dist");
 ```
 
@@ -139,7 +180,7 @@ npm run build        # builds index.<platform>.node + native.js
 npm publish --access public
 ```
 
-Consumers then simply `npm install tuari-rmd` and the correct prebuilt
+Consumers then simply `npm install rmd` and the correct prebuilt
 binary is fetched via `optionalDependencies` — no Rust toolchain required.
 
 ## License

@@ -1,7 +1,7 @@
 {
   "npmDir": ".",
-  "binaryName": "tuari-rmd",
-  "packageName": "tuari-rmd",
+  "binaryName": "rmd",
+  "packageName": "rmd",
   "targets": [
     "x86_64-pc-windows-msvc",
     "aarch64-pc-windows-msvc",

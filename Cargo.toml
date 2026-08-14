@@ -1,11 +1,11 @@
 [package]
-name = "tuari-rmd"
+name = "rmd"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "A fast cross-platform file/directory removal tool, written in Rust (rimraf alternative)"
-repository = "https://github.com/your-username/tuari-rmd"
-homepage = "https://github.com/your-username/tuari-rmd"
+repository = "https://github.com/your-username/rmd"
+homepage = "https://github.com/your-username/rmd"
 readme = "README.md"
 
 [lib]

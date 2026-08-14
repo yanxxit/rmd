@@ -1,5 +1,5 @@
 {
-  "name": "tuari-rmd",
+  "name": "rmd",
   "version": "0.1.0",
   "description": "A fast cross-platform file/directory removal tool written in Rust — a rimraf alternative",
   "keywords": [
@@ -17,13 +17,13 @@
   "author": "your-name",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/tuari-rmd"
+    "url": "https://github.com/your-username/rmd"
   },
-  "homepage": "https://github.com/your-username/tuari-rmd#readme",
+  "homepage": "https://github.com/your-username/rmd#readme",
   "main": "index.js",
   "types": "index.d.ts",
   "bin": {
-    "tuari-rmd": "bin/tuari-rmd.js"
+    "rmd": "bin/rmd.js"
   },
   "files": [
     "index.js",
@@ -47,13 +47,13 @@
     "@napi-rs/cli": "^2.18.4"
   },
   "optionalDependencies": {
-    "tuari-rmd-win32-x64-msvc": "0.1.0",
-    "tuari-rmd-win32-arm64-msvc": "0.1.0",
-    "tuari-rmd-darwin-x64": "0.1.0",
-    "tuari-rmd-darwin-arm64": "0.1.0",
-    "tuari-rmd-linux-x64-gnu": "0.1.0",
-    "tuari-rmd-linux-arm64-gnu": "0.1.0",
-    "tuari-rmd-linux-x64-musl": "0.1.0",
-    "tuari-rmd-linux-arm64-musl": "0.1.0"
+    "rmd-win32-x64-msvc": "0.1.0",
+    "rmd-win32-arm64-msvc": "0.1.0",
+    "rmd-darwin-x64": "0.1.0",
+    "rmd-darwin-arm64": "0.1.0",
+    "rmd-linux-x64-gnu": "0.1.0",
+    "rmd-linux-arm64-gnu": "0.1.0",
+    "rmd-linux-x64-musl": "0.1.0",
+    "rmd-linux-arm64-musl": "0.1.0"
   }
 }

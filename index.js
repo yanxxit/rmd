@@ -33,5 +33,5 @@ module.exports = {
 
 // 直接执行时作为 CLI 运行
 if (require.main === module) {
-  require("./bin/tuari-rmd.js");
+  require("./bin/rmd.js");
 }
