@@ -114,17 +114,12 @@ jobs:
       - name: Build all platform packages & publish to npm
         run: |
           npm install
-          # Explicitly disable napi's own GitHub Release creation; releases are
-          # handled by the dedicated action below (more reliable permissions).
+          # napi v3 prepublish always creates a GitHub Release (no --no-gh-release
+          # flag exists); it needs GITHUB_TOKEN + `contents: write` (declared above).
           # Use the project-locked @napi-rs/cli (not npx --yes remote fetch).
-          npx napi prepublish -t binaries --no-gh-release
+          npx napi prepublish -t binaries --gh-release --tag-style npm
           # --ignore-scripts guards against any stray lifecycle hooks interfering.
           npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          # Files in binaries/ are the per-platform .node artifacts.
-          files: binaries/*.node
-          generate_release_notes: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
