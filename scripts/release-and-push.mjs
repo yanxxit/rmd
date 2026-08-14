@@ -29,6 +29,19 @@ const run = (cmd, args, opts = {}) =>
 const runCapture = (cmd, args) =>
   execFileSync(cmd, args, { cwd: root, encoding: "utf8" }).trim();
 
+// git wrapper: prints the exact command being run, for maintainability.
+// Automatically skips execution under --dry-run (unless `force` is set).
+const git = (args, { force = false } = {}) => {
+  const cmdStr = `git ${args.join(" ")}`;
+  if (DRY_RUN && !force) {
+    console.log(`  $ ${cmdStr}   (dry-run, skipped)`);
+    return;
+  }
+  console.log(`  $ ${cmdStr}`);
+  return run("git", args);
+};
+const gitCapture = (args) => runCapture("git", args);
+
 const DRY_RUN = process.argv.includes("--dry-run");
 const explicit = process.argv.slice(2).find((a) => !a.startsWith("--"));
 
@@ -47,9 +60,11 @@ run("npm", [
 
 if (DRY_RUN) {
   console.log("\n[DRY RUN] would then:");
-  console.log("  git add -A && git commit -m \"chore: 发布 X.Y.Z 版本\"");
-  console.log("  git tag vX.Y.Z");
-  console.log("  git push origin <branch> && git push origin vX.Y.Z");
+  console.log(`  $ git add -A`);
+  console.log(`  $ git commit -m "chore: 发布 X.Y.Z 版本"`);
+  console.log(`  $ git tag vX.Y.Z`);
+  console.log(`  $ git push origin <branch>`);
+  console.log(`  $ git push origin vX.Y.Z`);
   console.log("\nNothing committed or pushed.");
   process.exit(0);
 }
@@ -58,31 +73,32 @@ if (DRY_RUN) {
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const newVersion = pkg.version;
 const tag = `v${newVersion}`;
-const branch = runCapture("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+const branch = gitCapture(["rev-parse", "--abbrev-ref", "HEAD"]);
+console.log(`  (current branch: ${branch})`);
 
 // --- 2. commit ---
 console.log(`\n==> Step 2: commit version ${newVersion}`);
-const status = runCapture("git", ["status", "--porcelain"]);
+const status = gitCapture(["status", "--porcelain"]);
 if (!status) {
   console.log("Working tree already clean — nothing to commit.");
 } else {
-  run("git", ["add", "-A"]);
-  run("git", ["commit", "-m", `chore: 发布 ${newVersion} 版本`]);
+  git(["add", "-A"]);
+  git(["commit", "-m", `chore: 发布 ${newVersion} 版本`]);
 }
 
 // --- 3. tag ---
 console.log(`\n==> Step 3: create tag ${tag}`);
-const existingTags = runCapture("git", ["tag"]).split("\n");
+const existingTags = gitCapture(["tag"]).split("\n");
 if (existingTags.includes(tag)) {
   console.error(`Tag ${tag} already exists. Aborting to avoid duplicate push.`);
   process.exit(1);
 }
-run("git", ["tag", tag]);
+git(["tag", tag]);
 
 // --- 4. push branch + tag ---
 console.log(`\n==> Step 4: push ${branch} and ${tag} to origin`);
-run("git", ["push", "origin", branch]);
-run("git", ["push", "origin", tag]);
+git(["push", "origin", branch]);
+git(["push", "origin", tag]);
 
 console.log(`\n✅ Released ${newVersion} and pushed tag ${tag} to origin.`);
 console.log(`   CI will now build & publish @yanit/rmd@${newVersion} to npm.`);

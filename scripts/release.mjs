@@ -34,6 +34,13 @@ const run = (cmd, args, opts = {}) =>
 const runCapture = (cmd, args) =>
   execFileSync(cmd, args, { cwd: root, encoding: "utf8" }).trim();
 
+// git wrapper: prints the exact command being run, for maintainability.
+const git = (args) => {
+  console.log(`  $ git ${args.join(" ")}`);
+  return run("git", args);
+};
+const gitCapture = (args) => runCapture("git", args);
+
 const DRY_RUN = process.argv.includes("--dry-run");
 const NO_PUBLISH = process.argv.includes("--no-publish");
 const explicit = process.argv.slice(2).find((a) => !a.startsWith("--"));
@@ -81,7 +88,8 @@ if (!explicit) {
 console.log(`Release plan: ${current}  ->  ${target}`);
 
 // --- safety: clean working tree ---
-const status = runCapture("git", ["status", "--porcelain"]);
+console.log("  $ git status --porcelain");
+const status = gitCapture(["status", "--porcelain"]);
 if (status && !DRY_RUN) {
   console.error("Working tree is not clean. Commit or stash your changes first:\n" + status);
   process.exit(1);
