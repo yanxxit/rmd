@@ -10,7 +10,24 @@ high-performance alternative to [`rimraf`](https://www.npmjs.com/package/rimraf)
 - 🆔  Idempotent: removing a non-existent path is a no-op
 - 🧰  Usable as a **CLI** or a **Node.js API**
 
+## Documentation
+
+- [使用指南（中文）](./docs/USAGE.md) — 全局安装、CLI 与 Node.js / TypeScript API 用法
+- [开发 / 编译 / 发布指南](./docs/DEVELOPMENT.md)
+- [发布到 npm](./docs/PUBLISHING.md)
+- [异常处理与过程资产](./docs/TROUBLESHOOTING.md) — 历史问题与处理记录
+
 ## Install
+
+推荐全局安装（作为命令行工具 `rmd` 使用）：
+
+```bash
+npm install -g @yanit/rmd
+# or
+pnpm add -g @yanit/rmd
+```
+
+仅在代码中引用时，作为项目依赖安装：
 
 ```bash
 npm install @yanit/rmd
@@ -19,7 +36,8 @@ pnpm add @yanit/rmd
 yarn add @yanit/rmd
 ```
 
-The correct native binary is pulled in automatically via optional dependencies.
+所有平台的预编译 `.node` 二进制已直接内置在主包中，安装时自动按当前平台加载，
+无需 optional dependencies，也无需 Rust 工具链。
 
 ## CLI usage
 
