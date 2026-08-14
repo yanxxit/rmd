@@ -85,11 +85,16 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           path: artifacts
-      - name: Sync version from tag
+      # Single step: sync version -> move artifacts -> install -> verify -> publish.
+      # Keeping it all in one step removes any ambiguity about file state between
+      # steps (npm install cannot roll back the version we just wrote).
+      - name: Sync version and publish
         run: |
           # Tag is like "v0.1.3"; derive "0.1.3" and write it everywhere.
           VERSION="${GITHUB_REF_NAME#v}"
           echo "Publishing version: $VERSION"
+
+          # 1) Sync version into package.json + Cargo.toml.
           node -e "
             const fs = require('fs');
             const pkgPath = 'package.json';
@@ -111,23 +116,26 @@ jobs:
           sed -i.bak "s/^version = .*/version = \"$VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak
           grep '^version' Cargo.toml | head -1
           grep '"version"' package.json | head -1
-      - name: Move artifacts
-        run: |
+
+          # 2) Move build artifacts into place.
           mkdir -p binaries
           for d in artifacts/bindings-*/; do
             cp "$d"*.node binaries/ 2>/dev/null || true
           done
           ls -la binaries
-      - name: Build all platform packages & publish to npm
-        run: |
+
+          # 3) Install dependencies.
           npm install
-          # Sanity-check version sync + valid JSON before napi touches anything.
+
+          # 4) Re-verify version after install (guards against any tooling reset).
           node -e 'const fs = require("fs"); const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); const v = pkg.version; if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(v)) { console.error("Invalid version in package.json:", v); process.exit(1); } const allOpt = Object.values(pkg.optionalDependencies || {}).every((x) => x === v); console.log("Pre-publish version:", v, "| optionalDeps in sync:", allOpt); if (!allOpt) process.exit(1);'
-          # napi v3 prepublish always creates a GitHub Release (no --no-gh-release
-          # flag exists); it needs GITHUB_TOKEN + `contents: write` (declared above).
-          # Use the project-locked @napi-rs/cli (not npx --yes remote fetch).
+
+          # 5) napi v3 prepublish always creates a GitHub Release (no --no-gh-release
+          #    flag exists); it needs GITHUB_TOKEN + `contents: write` (declared above).
+          #    Use the project-locked @napi-rs/cli (not npx --yes remote fetch).
           npx napi prepublish -t binaries --gh-release --tag-style npm
-          # --ignore-scripts guards against any stray lifecycle hooks interfering.
+
+          # 6) --ignore-scripts guards against any stray lifecycle hooks interfering.
           npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
