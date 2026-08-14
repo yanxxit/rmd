@@ -15,27 +15,32 @@ jobs:
         settings:
           - host: windows-latest
             target: x86_64-pc-windows-msvc
-            build: napi build --platform --release --target x86_64-pc-windows-msvc --js native.js
+            build: npx napi build --platform --release --target x86_64-pc-windows-msvc --js native.js
           - host: windows-latest
             target: aarch64-pc-windows-msvc
-            build: napi build --platform --release --target aarch64-pc-windows-msvc --js native.js
-          - host: macos-latest
+            build: npx napi build --platform --release --target aarch64-pc-windows-msvc --js native.js
+          - host: macos-13
             target: x86_64-apple-darwin
-            build: napi build --platform --release --target x86_64-apple-darwin --js native.js
+            build: npx napi build --platform --release --target x86_64-apple-darwin --js native.js
           - host: macos-latest
             target: aarch64-apple-darwin
-            build: napi build --platform --release --target aarch64-apple-darwin --js native.js
+            build: npx napi build --platform --release --target aarch64-apple-darwin --js native.js
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            build: napi build --platform --release --target x86_64-unknown-linux-gnu --js native.js
+            build: npx napi build --platform --release --target x86_64-unknown-linux-gnu --js native.js
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             build: |
               export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-              napi build --platform --release --target aarch64-unknown-linux-gnu --js native.js
+              npx napi build --platform --release --target aarch64-unknown-linux-gnu --js native.js
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            build: napi build --platform --release --target x86_64-unknown-linux-musl --js native.js
+            build: npx napi build --platform --release --target x86_64-unknown-linux-musl --js native.js
+          - host: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            build: |
+              export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc
+              npx napi build --platform --release --target aarch64-unknown-linux-musl --js native.js
 
     name: build - ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
@@ -47,10 +52,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
-      - name: Install cross (aarch64 linux)
-        if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
+      - name: Install cross toolchain (aarch64 linux)
+        if: ${{ contains(matrix.settings.target, 'aarch64-unknown-linux') }}
         run: |
-          sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Install musl tools
+        if: ${{ contains(matrix.settings.target, 'musl') }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
       - run: npm install
       - run: ${{ matrix.settings.build }}
       - uses: actions/upload-artifact@v4
