@@ -26,6 +26,10 @@ rmd --dry-run build
 # 异步模式删除
 rmd --async ./sandbox
 
+# 显示进度条（TTY 下默认自动开启；非 TTY 可用 --progress 强制）
+rmd --progress ./sandbox
+rmd -rfp ./sandbox
+
 # 生成测试数据，然后清空
 rmd gen ./sandbox -n 2000 -s 1m -d 3
 rmd -rf ./sandbox
@@ -44,9 +48,13 @@ rmd -h
 | `-r, --recursive` | 允许递归删除目录（出于安全默认始终开启） |
 | `-f, --force` | 目标不存在时不报错 |
 | `-v, --verbose` | 打印每个被删除的路径 |
+| `--progress` | 显示进度条（输出为 TTY 时默认自动开启） |
 | `--dry-run` | 只显示将要删除的内容，不真正删除 |
 | `--async` | 使用异步 API |
 | `-h, --help` | 显示帮助 |
+
+> 进度反馈：删除结束后会打印总耗时，例如 `done: removed 1 target(s) in 0.02s`。
+> 进度条为单行原地刷新（TTY）；非 TTY 环境每约 10% 打印一次。
 
 > 安全保护：CLI 会拒绝删除根目录（`/`）或当前工作目录，避免误操作。
 
@@ -90,10 +98,21 @@ if (pathExists("tmp")) {
 
 | 函数 | 签名 | 说明 |
 | --- | --- | --- |
-| `removeSync` | `(targets: string \| string[]) => void` | 同步删除一个或多个路径 |
-| `removeAsync` | `(targets: string \| string[]) => Promise<void>` | 异步删除一个或多个路径 |
+| `removeSync` | `(targets: string \| string[], opts?): void` | 同步删除一个或多个路径，`opts.onProgress` 可选 |
+| `removeAsync` | `(targets: string \| string[], opts?): Promise<void>` | 异步删除一个或多个路径 |
 | `pathExists` | `(target: string) => boolean` | 判断路径是否存在 |
 
+`opts` 可以是一个 `onProgress` 回调，也可以直接传入回调本身：
+
+```ts
+type OnProgress = (done: number, total: number) => void;
+removeSync("dist", { onProgress: (done, total) => console.log(done, "/", total) });
+// 也支持直接传回调
+removeSync("dist", (done, total) => updateBar(done, total));
+```
+
+> `onProgress(done, total)` 在每删除一个条目（文件 / 符号链接 / 目录）后调用一次，
+> 最后一次调用满足 `done === total`。进度反馈仅在**同步**模式下触发（异步模式暂不回调）。
 > 不传参数或传入 `null` 时返回空操作；传入非字符串/非数组类型会抛出
 > `TypeError`。删除支持符号链接、只读文件、嵌套目录，并对不存在的目标
 > 幂等（不抛错）。

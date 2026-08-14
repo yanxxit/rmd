@@ -17,7 +17,19 @@ const RETRY_DELAY: Duration = Duration::from_millis(100);
 
 /// 删除给定路径（文件、目录或符号链接）。
 /// 路径不存在时直接返回 Ok（幂等行为）。
-pub fn remove_path(target: &Path) -> io::Result<()> {
+/// `done` 为已删除条目计数（含目录），`report` 在每次成功删除后被调用，
+/// 用于进度反馈（参数为 (done, total)）。
+/// `track`：是否统计并上报已删除数量（有进度回调时为 true）。
+/// `count_total`：是否预先遍历整树以估算 total（仅详细进度条需要；
+///   为 false 时不预遍历，避免干扰删除速度，total 以 0 表示"未知"）。
+pub fn remove_path(
+  target: &Path,
+  done: &mut u64,
+  total: u64,
+  track: bool,
+  count_total: bool,
+  report: &dyn Fn(u64, u64),
+) -> io::Result<()> {
   let meta = match std::fs::symlink_metadata(target) {
     Ok(m) => m,
     // 不存在 -> 幂等成功
@@ -31,11 +43,36 @@ pub fn remove_path(target: &Path) -> io::Result<()> {
   };
 
   if meta.is_dir() && !is_symlink(&meta) {
-    remove_dir_all(target)
+    remove_dir_all(target, done, total, track, count_total, report)
   } else {
     // 文件或符号链接：先尝试解除只读，再删除
     let _ = make_writable(target);
-    with_retry(target, || std::fs::remove_file(target))
+    with_retry(target, || std::fs::remove_file(target))?;
+    if track {
+      *done += 1;
+      report(*done, total);
+    }
+    Ok(())
+  }
+}
+
+/// 统计路径包含的条目总数（文件 + 符号链接 + 目录，含根本身），
+/// 用于进度条的总量预估。遍历失败或不可访问时忽略该分支。
+pub fn count_entries(target: &Path) -> u64 {
+  let meta = match std::fs::symlink_metadata(target) {
+    Ok(m) => m,
+    Err(_) => return 0,
+  };
+  if meta.is_dir() && !is_symlink(&meta) {
+    let mut count = 1u64; // 目录自身
+    if let Ok(rd) = std::fs::read_dir(target) {
+      for entry in rd.flatten() {
+        count += count_entries(&entry.path());
+      }
+    }
+    count
+  } else {
+    1
   }
 }
 
@@ -89,20 +126,44 @@ fn make_writable(path: &Path) -> io::Result<()> {
 
 /// 递归删除目录，采用自底向上的方式（先删子项再删自身），
 /// 对每一层都尝试解除只读属性并对临时性错误重试。
-fn remove_dir_all(dir: &Path) -> io::Result<()> {
-  // 先尝试标准的 remove_dir_all（大多数情况足够快）
-  match std::fs::remove_dir_all(dir) {
-    Ok(()) => return Ok(()),
-    Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
-    // 否则回退到手动递归（处理只读/权限问题）
-    _ => {}
+fn remove_dir_all(
+  dir: &Path,
+  done: &mut u64,
+  total: u64,
+  track: bool,
+  count_total: bool,
+  report: &dyn Fn(u64, u64),
+) -> io::Result<()> {
+  // 有统计需求（track）时逐条精确计数：loading 显示实时已删数量、detailed 显示平滑
+  // 百分比。跳过「一次性盲删」的 fast-path（盲删无法逐条上报，进度会卡住）。
+  // 注意：manual 逐条删只统计「已删除数量」，并不预遍历整树估算总数。
+  if track {
+    manual_remove_dir_all(dir, done, total, track, count_total, report)?;
+    with_retry(dir, || std::fs::remove_dir(dir))?;
+    *done += 1;
+    report(*done, total);
+    return Ok(());
   }
-
-  manual_remove_dir_all(dir)?;
-  with_retry(dir, || std::fs::remove_dir(dir))
+  // 无统计需求（最快模式）：尝试标准 fast-path 一次性删除。
+  if std::fs::remove_dir_all(dir).is_ok() {
+    return Ok(());
+  }
+  // 否则回退到手动递归（处理只读/权限问题）
+  manual_remove_dir_all(dir, done, total, track, count_total, report)?;
+  with_retry(dir, || std::fs::remove_dir(dir))?;
+  Ok(())
 }
 
-fn manual_remove_dir_all(dir: &Path) -> io::Result<()> {
+// `count_total` 在此未使用：manual 模式逐条删除，天然精确计数，无需预遍历。
+#[allow(clippy::unused_self)]
+fn manual_remove_dir_all(
+  dir: &Path,
+  done: &mut u64,
+  total: u64,
+  track: bool,
+  _count_total: bool,
+  report: &dyn Fn(u64, u64),
+) -> io::Result<()> {
   // 显式栈实现后序遍历：每个栈元素携带 phase。
   //   phase = false：首次访问，需展开子项（并行删本层文件/链接，子目录入栈）。
   //   phase = true ：子项已处理完，当前目录已为空，可删除。
@@ -175,6 +236,11 @@ fn manual_remove_dir_all(dir: &Path) -> io::Result<()> {
       if let Some(e) = first_err.lock().unwrap().take() {
         return Err(e);
       }
+      // 本层文件/链接全部删除完成，计入进度。
+      if track {
+        *done += leaves.len() as u64;
+        report(*done, total);
+      }
     }
 
     // 标记当前目录稍后需删除，并压入未处理的子目录（后序）。
@@ -188,6 +254,10 @@ fn manual_remove_dir_all(dir: &Path) -> io::Result<()> {
   for d in dirs {
     let _ = make_writable(&d);
     with_retry(&d, || std::fs::remove_dir(&d))?;
+    if track {
+      *done += 1;
+      report(*done, total);
+    }
   }
   Ok(())
 }

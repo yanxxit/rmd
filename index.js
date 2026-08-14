@@ -5,8 +5,9 @@ const require = createRequire(import.meta.url);
 // we load it through createRequire so the require()-based shim works.
 const native = require("./native.cjs");
 
-// napi bindings accept an array of paths (Vec<String>); normalize a single
-// string (or any non-array) into an array so `removeSync("dist")` and
+// napi bindings accept an array of paths (Vec<String>) plus an optional
+// `progress(done, total)` callback; normalize a single string (or any
+// non-array) into an array so `removeSync("dist")` and
 // `removeSync(["a","b"])` both work.
 function toTargets(targets) {
   if (Array.isArray(targets)) return targets;
@@ -14,13 +15,24 @@ function toTargets(targets) {
   return [targets];
 }
 
-// Re-export the napi-generated bindings for the public API.
-export function removeSync(targets) {
-  return native.removeSync(toTargets(targets));
+function normalizeOpts(opts) {
+  if (typeof opts === "function") return { onProgress: opts };
+  if (opts && typeof opts === "object") return opts;
+  return {};
 }
 
-export function removeAsync(targets) {
-  return native.removeAsync(toTargets(targets));
+// Re-export the napi-generated bindings for the public API.
+// opts:
+//   onProgress(done, total) 进度回调。total===0 表示未知总数（loading 模式）。
+//   detailed: boolean       是否预先统计总数以显示百分比（默认 false，不预遍历）。
+export function removeSync(targets, opts) {
+  const { onProgress, detailed = false } = normalizeOpts(opts);
+  return native.removeSync(toTargets(targets), onProgress, detailed);
+}
+
+export function removeAsync(targets, opts) {
+  const { onProgress, detailed = false } = normalizeOpts(opts);
+  return native.removeAsync(toTargets(targets), onProgress, detailed);
 }
 
 export const pathExists = native.pathExists;

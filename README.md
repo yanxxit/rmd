@@ -52,6 +52,9 @@ rmd --dry-run build
 # verbose
 rmd -rfv tmp
 
+# progress bar (auto-enabled on TTY)
+rmd --progress build
+
 # async API internally
 rmd --async "*.tmp"
 ```
@@ -63,8 +66,11 @@ Options:
 | `-r, --recursive` | Allow recursive deletion (default on) |
 | `-f, --force` | No error if target is missing |
 | `-v, --verbose` | Print each removed path |
+| `--progress` | Show a progress bar (auto-on when output is a TTY) |
 | `--dry-run` | Show what would be removed |
 | `--async` | Use the async API |
+
+After deletion, total elapsed time is printed, e.g. `done: removed 1 target(s) in 0.02s`.
 | `-h, --help` | Show help |
 
 ## Generate test data (the `gen` command)

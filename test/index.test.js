@@ -1,8 +1,8 @@
 // Test suite for @yanit/rmd (ESM, uses node:test).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { promises as fs, existsSync, mkdirSync, symlinkSync, writeFileSync, lstatSync, chmodSync, readdirSync } from "node:fs";
-import { join, resolve, dirname } from "node:path";
+import { promises as fs, existsSync, mkdirSync, symlinkSync, writeFileSync, lstatSync, readdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
@@ -119,6 +119,49 @@ test("empty array is a no-op", async () => {
   assert.doesNotThrow(() => removeSync([]));
   assert.equal(pathExists(d), true);
   removeSync(d);
+});
+
+test("progress callback (loading mode, no pre-scan): reports live done count", async () => {
+  const d = await mkdtemp("rmd-prog-");
+  generate({ dir: d, count: 30, size: parseSize("1k"), depth: 2 });
+  const seen = [];
+  // 默认（不传 detailed）不预遍历总数；total 应为 0，done 实时增长。
+  removeSync(d, (done, total) => seen.push([done, total]));
+  assert.ok(seen.length > 0, "callback should fire");
+  // loading 模式：total 未知 = 0，不做百分比预扫描
+  assert.equal(seen[0][1], 0, "total should be 0 in loading mode");
+  const [lastDone] = seen[seen.length - 1];
+  assert.ok(lastDone > 0, "done should be positive");
+  // done 单调非递减
+  let prev = 0;
+  for (const [dn] of seen) {
+    assert.ok(dn >= prev, "done must not decrease");
+    prev = dn;
+  }
+  assert.equal(pathExists(d), false);
+});
+
+test("progress callback (detailed mode): done ends at total", async () => {
+  const d = await mkdtemp("rmd-prog-detail-");
+  generate({ dir: d, count: 30, size: parseSize("1k"), depth: 2 });
+  const seen = [];
+  // detailed=true 预先统计总数，last report 的 done 应等于 total。
+  removeSync(d, { detailed: true, onProgress: (done, total) => seen.push([done, total]) });
+  assert.ok(seen.length > 0, "callback should fire");
+  const [lastDone, lastTotal] = seen[seen.length - 1];
+  assert.ok(lastTotal > 0, "total should be pre-computed (non-zero)");
+  // done 实时计数与预扫描 total 口径可能相差 1（根/边界计入差异），允许 ±1。
+  assert.ok(
+    Math.abs(lastDone - lastTotal) <= 1,
+    `done (${lastDone}) should end near total (${lastTotal})`
+  );
+  let prev = 0;
+  for (const [dn, tot] of seen) {
+    assert.ok(dn >= prev, "done must not decrease");
+    assert.ok(dn >= 1 && dn <= tot + 1, "done within bounds (±1)");
+    prev = dn;
+  }
+  assert.equal(pathExists(d), false);
 });
 
 test("relative path removal respects cwd", async () => {
@@ -246,4 +289,23 @@ test("CLI gen: creates the requested number of files", async () => {
   walk(d);
   assert.equal(count, 30);
   removeSync(d);
+});
+
+test("CLI gen: routed even when flags precede the subcommand (#2)", async () => {
+  const d = await mkdtemp("rmd-cli-gen-flag-");
+  // 之前的 bug：rmd --progress gen <dir> 会把 "gen" 当成待删路径。
+  const { stdout } = await runCLI(process.execPath, [CLI, "--progress", "gen", d, "-n", "7"]);
+  assert.match(stdout, /Generated 7 files/);
+  // 临时目录没有被删除（gen 不删除任何东西）。
+  assert.equal(existsSync(d), true);
+  removeSync(d);
+});
+
+test("async: rejects the Promise on failure (#1)", async () => {
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const f = path.join(os.tmpdir(), `rmd-asyncfail-${Date.now()}.txt`);
+  writeFileSync(f, "x");
+  const bad = f + "/sub"; // f 是文件，f/sub -> ENOTDIR
+  await assert.rejects(() => removeAsync(bad), /Not a directory/);
 });
