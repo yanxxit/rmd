@@ -45,7 +45,7 @@
     "release:dry": "node scripts/release.mjs --dry-run",
     "release:push": "node scripts/release-and-push.mjs",
     "release:push:dry": "node scripts/release-and-push.mjs --dry-run",
-    "test": "node test/index.test.js"
+    "test": "node --test test/index.test.js"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3"
