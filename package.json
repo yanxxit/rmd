@@ -1,6 +1,6 @@
 {
   "name": "@yanit/rmd",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "A fast cross-platform file/directory removal tool written in Rust — a rimraf alternative",
   "keywords": [
     "rimraf",
