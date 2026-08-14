@@ -89,18 +89,18 @@ jobs:
       # Keeping it all in one step removes any ambiguity about file state between
       # steps (npm install cannot roll back the version we just wrote).
       - name: Sync version and publish
+        env:
+          # Inject VERSION at the step-env level so node subprocesses see it
+          # via process.env (a plain shell `VERSION=x` is NOT exported to children).
+          VERSION: ${{ github.ref_name }}
         run: |
           # Tag is like "v0.1.3"; derive "0.1.3" and write it everywhere.
-          VERSION="${GITHUB_REF_NAME#v}"
           echo "Publishing version: $VERSION"
 
           # 1) Sync version into package.json + Cargo.toml.
-          # Use process.env.VERSION (node inherits the shell var). Passing via
-          # argv with a trailing "$VERSION" breaks because the multi-line
-          # double-quoted node script has nested quotes that mis-terminate.
           node -e "
             const fs = require('fs');
-            const version = process.env.VERSION;
+            const version = process.env.VERSION.replace(/^v/, '');
             const pkgPath = 'package.json';
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
             pkg.version = version;
@@ -117,7 +117,7 @@ jobs:
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
             console.log('Updated package.json version to:', pkg.version);
           "
-          sed -i.bak "s/^version = .*/version = \"$VERSION\"/" Cargo.toml && rm -f Cargo.toml.bak
+          sed -i.bak "s/^version = .*/version = \"${VERSION#v}\"/" Cargo.toml && rm -f Cargo.toml.bak
           grep '^version' Cargo.toml | head -1
           grep '"version"' package.json | head -1
 
